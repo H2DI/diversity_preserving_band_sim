@@ -1,0 +1,4 @@
+
+*.pyc
+bandits_lab/algorithms/.DS_Store
+.DS_Store
