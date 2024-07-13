@@ -210,98 +210,52 @@ class DivPBand(DBand):
         self.cum_regret = []
 
 
-class AnonBand:
-    """in progress"""
+class DivPBandFinite(DBand):
+    """
+    Main diversity-preserving bandit class.
+    Need to specify upon creation:
+        - a vector of mean rewards,
+        - a probability set given as a DivConstraints object.
 
-    def __init__(self, K, M, cdistrib, mus, noise="gaussian"):
-        self.K = K
-        self.M = M
-        self.cdistrib = cdistrib
-        self.noise = noise
-        self.mus = mus  # mus is a K*M matrix
+    Inherits the play_arm method and keeps track of the played arm.
+    Overwrites the cum_regret and point_regret attributes
+    """
 
-        self.mubar = np.dot(mus, cdistrib)
-        self.mubar_opt = np.max(self.mubar)
-        self.optimal_action = np.argmax(self.mubar)
+    def __init__(self, K, mus, Plist, noise="gaussian"):
+        super().__init__(K, mus, noise=noise)
+        self.Plist = Plist
 
-        self.time = 0
-        self.contexts_received = []
-        self.observed_rewards = []
-        self.played_actions = []
+        self.m_p = -1e10
+        for p in Plist:
+            avg_rew = p @ self.mus
+            if avg_rew > self.m_p:
+                self.p_star = p
+                self.m_p = avg_rew
+
+        self.played_ps = []
         self.point_regret = []
-        self.cum_regret = []
+        self.cum_regret = []  # overwrites the attribute in the parent class
 
-    def compute_reward(self, a, c):  # returns a couple (mean, actual_reward)
-        if self.noise == "gaussian":
-            return self.mus[a, c] + np.random.normal(0, 0.25)
-        elif self.noise == "bernoulli":
-            return np.random.rand() <= self.mus[a, c]
+    def _compute_reward(self, a):
+        return np.random.normal(self.mus[a], 1 / 2)
 
-    def play_arm(self, a):
-        c = draw_from_p(self.cdistrib, self.M)
-        reward = self.compute_reward(a, c)
-
-        self.time += 1
-        self.contexts_received.append(c)
-        self.played_actions.append(a)
+    def play_p(self, p):
+        arm = draw_from_p(p, self.K)
+        reward = self._compute_reward(arm)
+        self.played_arms.append(arm)
         self.observed_rewards.append(reward)
-        self.point_regret.append(self.mubar_opt - self.mubar[a])
+        self.played_ps += [p]
+
+        self.point_regret += [self.m_p - np.dot(p, self.mus)]
         if self.cum_regret:
-            last_r = self.cum_regret[-1]
-            self.cum_regret.append(last_r + self.mubar_opt - self.mubar[a])
+            a = self.cum_regret[-1]
+            self.cum_regret.append(a + self.m_p - np.dot(p, self.mus))
         else:
-            self.cum_regret.append(self.mubar_opt - self.mubar[a])
-        return reward, c
+            self.cum_regret.append(self.m_p - np.dot(p, self.mus))
+        return arm, reward
 
     def reset(self):
-        self.time = 0
-        self.contexts_received = []
-        self.observed_rewards = []
-        self.played_actions = []
+        super().reset()
+        self.played_ps = []
         self.point_regret = []
         self.cum_regret = []
-
-
-class AnonConstraints(DivConstraints):
-    """in progress"""
-
-    def __init__(self, K, M, cdistrib):
-        self.K = K
-        self.M = M
-        self.cdistrib = cdistrib
-        self.feasible = self.p_from_a(np.random.randint(self.K))
-
-    def check(self, x):
-        K, M = self.K, self.M
-        xr = x.reshape((K, M))
-        for i in range(K):
-            if not (all((xr[i, :] - self.cdistrib) < 0.0001)):
-                return False
-        return True
-
-    def p_from_a(self, a):
-        p = np.zeros((self.K, self.M))
-        p[a, :] = self.cdistrib
-        return p.flatten()
-
-    def a_from_p(self, p):
-        assert self.check(p)
-        return np.argmax(p.reshape(self.K, self.M)[:, 0])
-
-    def argmax_dot(
-        self, U
-    ):  # returns an object with two attributes, self.x and self.fun
-        K, M, cdistrib = self.K, self.M, self.cdistrib
-        p_from_a = self.p_from_a
-
-        class opt:
-            def __init__(self):
-                Ur = U.reshape((K, M))
-                self.fun = -1
-                for a in range(K):
-                    m = np.dot(Ur[a, :], cdistrib)
-                    if m > self.fun:
-                        self.x = p_from_a(a)
-                        self.fun = m
-
-        return opt()

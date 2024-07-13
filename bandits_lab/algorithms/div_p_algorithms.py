@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 
 class DivPAlg:
@@ -98,6 +99,23 @@ class DivPUCB(DivIndexPolicies):
         )
 
 
+class DivPUCBFinite(DivPUCB):
+    r"""Index $U_a(t) = \hat \mu_a(t) + sqrt( 2 \ln t  / N_a(t))$"""
+
+    def __init__(self, K, Plist, sig=1 / 2, label="", **params):
+        super().__init__(K, Plist, sig=sig, label=label)
+        self.Plist = Plist
+
+    def choose_p(self):
+        current_max = -1e10
+        for p in self.Plist:
+            v = p @ self.indices
+            if v > current_max:
+                r = p
+                current_max = v
+        return r
+
+
 class DivPklUCB(DivIndexPolicies):
     r"""
     Index $U_a(t)$ is such that
@@ -149,7 +167,7 @@ class L1OFUL(DivPAlg):
     the L1-OFUL algorithm.
 
     Computes the extreme points of an ell_1 confidence set. The confidence set is based
-    on [1] and [2].
+    on Abbasi-Yadkori et al. (2011) and Dani et al. (2008).
     """
 
     def __init__(self, K, setP, label="", **params):
@@ -177,23 +195,23 @@ class L1OFUL(DivPAlg):
         current_max = 0
         current_p = np.ones(self.K) / self.K
 
-        eigvals, eigvects = np.linalg.eigh(self.vt)
+        Mhalf = scipy.linalg.sqrtm(self.vt_inv)
+        alpha = 0.5
 
         for i in range(self.K):
-            # ei = np.array([1. * (j == i) for j in range(self.K)])
-            ei = eigvects[:, i]
-            di = np.sqrt(eigvals[i])
+            ei = np.array([1.0 * (j == i) for j in range(self.K)])
+            ui = Mhalf @ ei
             loc_muhat = self.muhat.reshape(self.K)
 
             optimizer = self.setP.argmax_dot(
-                loc_muhat + ei * np.sqrt(self.K) * sqrt_beta / di
+                loc_muhat + alpha * ui * np.sqrt(self.K) * sqrt_beta
             )
             if optimizer.fun > current_max:
                 current_max = optimizer.fun
                 current_p = optimizer.x
 
             optimizer = self.setP.argmax_dot(
-                loc_muhat - ei * np.sqrt(self.K) * sqrt_beta / di
+                loc_muhat - alpha * ui * np.sqrt(self.K) * sqrt_beta
             )
             if optimizer.fun > current_max:
                 current_max = optimizer.fun
@@ -209,7 +227,7 @@ class L1OFUL(DivPAlg):
         p = self.played_ps[-1]
         p = p.reshape(self.K, 1)
 
-        r1update = np.matmul(p, p.T)
+        r1update = p @ p.T
         self.vt += r1update
         temp = np.matmul(self.vt_inv, p)
         temp2 = 1 + np.dot(p.T, temp)[0, 0]
@@ -232,7 +250,46 @@ class L1OFUL(DivPAlg):
         self.det_vt = 1
         self.vt_inv = np.identity(K)
 
-        self.sq_pts = np.ones(K)
+
+class L1OFULFinite(L1OFUL):
+    """
+    Assumes the set of mixed actions is finite, or given as the set of extremal points.
+    """
+
+    def __init__(self, K, Plist, label="", **params):
+        super().__init__(K, Plist, label=label, **params)
+        self.Plist = Plist
+        self.feasible = np.mean(self.Plist, axis=1)
+
+    def choose_p(self):
+        if self.alg_time == 0:
+            self.played_ps.append(self.feasible)
+            return self.feasible
+
+        if self.delta == 0:
+            sqrt_beta = 1 + np.sqrt(np.log(self.alg_time * self.det_vt))
+        else:
+            sqrt_beta = 1 + np.sqrt(np.log(self.det_vt / self.delta))
+        current_max = 0
+        current_p = np.ones(self.K) / self.K
+
+        Mhalf = scipy.linalg.sqrtm(self.vt_inv)
+        alpha = 0.5
+
+        for i in range(self.K):
+            ei = np.array([1.0 * (j == i) for j in range(self.K)])
+            ui = Mhalf @ ei
+            loc_muhat = self.muhat.reshape(self.K)
+            for p in self.Plist:
+                valminus = (loc_muhat + alpha * ui * np.sqrt(self.K) * sqrt_beta) @ p
+                valplus = (loc_muhat - alpha * ui * np.sqrt(self.K) * sqrt_beta) @ p
+                val = max(valplus, valminus)
+                if val > current_max:
+                    current_max = val
+                    current_p = p
+
+        self.played_ps.append(current_p)
+        return current_p
 
 
 class ConstantSampling(DivPAlg):
