@@ -1,4 +1,4 @@
-Code for the article **Diversity-preserving bandits, revisited**
+# Code for the article: **Diversity-preserving bandits, revisited**
 
 by Hédi Hadiji, Sébastien Gerchinovitz, Jean-Michel Loubes and Gilles Stoltz (2024). 
 
