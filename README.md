@@ -1,6 +1,6 @@
 # Code for the article: **Diversity-preserving bandits, revisited**
 
-by Hédi Hadiji, Sébastien Gerchinovitz, Jean-Michel Loubes and Gilles Stoltz (2024), _Transactions of Machine Learning Research_
+by Hédi Hadiji, Sébastien Gerchinovitz, Jean-Michel Loubes and Gilles Stoltz (2024), _Transactions on Machine Learning Research_
 
 [Link to article](https://openreview.net/forum?id=Viz7KBqO4A)
 
