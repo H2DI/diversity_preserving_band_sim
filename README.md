@@ -1,8 +1,8 @@
 # Code for the article: **Diversity-preserving bandits, revisited**
 
-by Hédi Hadiji, Sébastien Gerchinovitz, Jean-Michel Loubes and Gilles Stoltz (2024). 
+by Hédi Hadiji, Sébastien Gerchinovitz, Jean-Michel Loubes and Gilles Stoltz (2024), _Transactions of Machine Learning Research_
 
-[HAL preprint](https://hal.science/hal-02957485)
+[Link to article](https://openreview.net/forum?id=Viz7KBqO4A)
 
 This repository contains the files:
 - [div_p_bandits.py](https://github.com/H2DI/diversity_preserving_band_sim/blob/main/bandits_lab/bandit_definitions/div_p_bandits.py) which implements the diversity-preserving bandit problem
